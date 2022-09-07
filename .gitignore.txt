@@ -1,4 +1,0 @@
-venv/
-.venv/
-
-telegram/db.sqlite3
