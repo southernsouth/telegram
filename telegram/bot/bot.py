@@ -4,19 +4,18 @@ import requests
 import datetime
 from db_worker import add_user, message_history
 import json
+import os, re
+import youtube_dl
+from PIL import Image
 
 
-
-bot = telebot.TeleBot('5608072463:AAGXJKeXosQWWKVL-Kl8578QCI9AtdRSQww')
+bot = telebot.TeleBot('5669662526:AAF5IKDO18_A293S-hEgqPsSdv86HjC5JGM')
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    btn1 = types.KeyboardButton('Hello')
-    btn2 = types.KeyboardButton('Button')
-    markup.add(btn1, btn2)
+    
 
-    bot.send_message(message.chat.id, text='Hello ' + message.from_user.first_name, reply_markup=markup)
+    bot.send_message(message.chat.id, text='Hello ' + message.from_user.first_name)
 
     add_user(chat_id=message.chat.id,
             full_name=str(message.from_user.first_name + " " + str(message.from_user.last_name)),
@@ -26,15 +25,47 @@ def send_welcome(message):
 
 @bot.message_handler(content_types=['text'])
 def func(message):
-    if(message.text == 'Hello'):
-        bot.send_message(message.chat.id, text='Hello ' + message.from_user.first_name)
-    elif(message.text == '/bot'):
-        botinfo = bot.get_me()
-        bot.send_message(message.chat.id, text=botinfo)
-    elif(message.text == '/dice'):
-        bot.send_dice(message.chat.id, emoji='🎲')
-    elif(message.text == '/ban1'):
-        bot.ban_chat_member(message.chat.id, user_id=1493453289)
+    bot.delete_message(message.chat.id, message.message_id)
+    bot.send_message(message.chat.id, text='Wait...')
+    link = message.text
+    if link.find('youtu') != -1:
+        try:
+            ydl_opts = {
+                'outtmpl': '%(title)s.%(ext)s',
+                'format': 'bestaudio/best',
+                'noplaylist': True,
+                'writethumbnail': True,
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '320'
+                }]
+            }
+            with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(link)
+            title = info['title']
+            name = title.replace('/', '_').replace('"', "'")
+            punct = '[---]+'
+            lst = re.split(punct, title)
+            if len(lst) != 1:
+                performer = lst[0]
+                song_title = lst[1]
+            else:
+                performer = info['uploader']
+                song_title = title
+            k = open(name+'.mp3', 'r+b')
+            try: im = Image.open(name+'.jpg')
+            except: im = Image.open(name+'.webp')
+            bot.send_photo(message.chat.id, im, caption='youtu.be/'+info['id'])
+            bot.send_audio(message.chat.id, k, performer=performer, title=song_title)
+            k.close()
+            try: os.remove(name+'.jpg')
+            except: os.remove(name+'.webp')
+            os.remove(name+'.mp3')
+        except:
+            bot.send_message(message.chat.id, 'Error')
+    else:
+        bot.send_message(message.chat.id, 'Error')
 
     message_history(message_id=message.message_id,
                     chat_id=message.from_user.id,
